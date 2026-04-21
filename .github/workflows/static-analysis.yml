@@ -1,0 +1,67 @@
+name: Supabase Static Analysis
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+
+jobs:
+  static-analysis:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ---------------------------
+      # 1. SQL STATIC ANALYSIS
+      # ---------------------------
+      - name: Install SQLFluff (SQL linter)
+        run: pip install sqlfluff
+
+      - name: Lint SQL migrations
+        run: |
+          sqlfluff lint supabase/migrations --dialect postgres
+
+      # ---------------------------
+      # 2. SUPABASE CLI CHECKS
+      # ---------------------------
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Supabase CLI
+        run: npm install -g supabase
+
+      - name: Supabase lint
+        run: supabase db lint
+
+      # ---------------------------
+      # 3. EDGE FUNCTIONS (TS/JS)
+      # ---------------------------
+      - name: Install dependencies (if edge functions exist)
+        run: |
+          if [ -f package.json ]; then npm install; fi
+
+      - name: Run ESLint (Edge Functions)
+        run: |
+          if [ -f package.json ]; then npx eslint . || true; fi
+
+      # ---------------------------
+      # 4. STRUCTURE VALIDATION
+      # ---------------------------
+      - name: Check project structure
+        run: |
+          echo "Checking Supabase structure..."
+          test -d supabase/migrations || (echo "Missing migrations folder" && exit 1)
+          test -d supabase/functions || echo "No edge functions folder (ok)"
+
+      # ---------------------------
+      # 5. SECURITY BASIC SCAN (SQL PATTERNS)
+      # ---------------------------
+      - name: Basic SQL security scan
+        run: |
+          echo "Scanning for unsafe patterns..."
+          ! grep -R "DROP TABLE" supabase/migrations || (echo "Dangerous DROP TABLE found" && exit 1)
+          ! grep -R "GRANT ALL" supabase/migrations || (echo "Over-permissive GRANT ALL found" && exit 1)
