@@ -53,6 +53,8 @@ minimumReleaseAgeExclude:
   # The following packages are excluded from the minimum release age check because they had a vulneralibity
   # Delete them the next time you update this list
   - follow-redirects
+  # Renovate security update: tar@7.5.21
+  - tar@7.5.21
 
 onlyBuiltDependencies:
   - node-pty
